@@ -9,6 +9,7 @@ dist/linux/*.deb
 src/app/css/app.css
 git.json
 *git.json
+.vscode/
 
 # temp files
 pids

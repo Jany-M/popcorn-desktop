@@ -3120,7 +3120,7 @@ gopd@^1.0.1:
   dependencies:
     get-intrinsic "^1.1.3"
 
-got@11.x.x, got@^11.0.0:
+got@11.x.x, got@^11.0.0, got@^11.8.2:
   version "11.8.6"
   resolved "https://registry.npmjs.org/got/-/got-11.8.6.tgz"
   integrity sha512-6tfZ91bOr7bOXnK7PRDCGBLa1H4U080YHNaAQ2KsMGlLEzRbk44nsZF2E1IeRc3vtJHPVbKCYgdFbaGO2ljd8g==
@@ -5414,6 +5414,13 @@ opensubtitles-api@^5.1.2:
     urijs "^1.19.1"
     xmlrpc "^1.3.2"
 
+opensubtitles.com@^1.1.0:
+  version "1.1.0"
+  resolved "https://registry.yarnpkg.com/opensubtitles.com/-/opensubtitles.com-1.1.0.tgz#04027ecf9e6159e9d934b7a56f6e693c93cafdb4"
+  integrity sha512-Qc9NTYxXL/x4nnpDs8krKO3WhMvuxcNyUjC4ey99tWpjp1KRKML4uyhwksEmOXN+Xhwvcub+MWdgotRbDvSVNQ==
+  dependencies:
+    got "^11.8.2"
+
 options-defaults@^2.0.39:
   version "2.0.40"
   resolved "https://registry.npmjs.org/options-defaults/-/options-defaults-2.0.40.tgz"
@@ -7176,7 +7183,7 @@ teex@^1.0.1:
 
 "temp@github:adam-lynch/node-temp#remove_tmpdir_dep":
   version "0.8.3"
-  resolved "git+ssh://git@github.com/adam-lynch/node-temp.git#279c1350cb7e4f02515d91da9e35d39a40774016"
+  resolved "git+https://github.com/adam-lynch/node-temp.git#279c1350cb7e4f02515d91da9e35d39a40774016"
   dependencies:
     rimraf "~2.2.6"
 
@@ -7948,7 +7955,7 @@ vinyl@^3.0.0:
 
 "vtt.js@git+https://github.com/gkatsev/vtt.js.git#vjs-v0.12.1":
   version "0.12.1"
-  resolved "git+ssh://git@github.com/gkatsev/vtt.js.git#8ea664e257ec7b5c092f58ac989e3134ff536a7a"
+  resolved "git+https://github.com/gkatsev/vtt.js.git#8ea664e257ec7b5c092f58ac989e3134ff536a7a"
 
 w-json@^1.3.10:
   version "1.3.10"

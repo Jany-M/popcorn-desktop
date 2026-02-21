@@ -420,7 +420,7 @@
                         <label class="settings-label" for="multipleExtSubtitles"><%= i18n.__("Show all available subtitles for default language in flag menu") %></label>
                     </span>
                     <span>
-                        <em>* <%= i18n.__("You are currently connected to %s", "OpenSubtitles.org") %>.
+                        <em>* <%= i18n.__("You are currently connected to %s", "OpenSubtitles.com") %>.
                         <a id="unauthOpensubtitles" class="unauthtext" href="#"><%= i18n.__("Disconnect account") %></a></em>
                     </span>
                 <% } else { %>
@@ -433,10 +433,10 @@
                     </span>
                     <span>
                         <p><%= i18n.__("Password") %></p>
-                        <input type="password" size="50" id="opensubtitlesPassword" name="opensubtitlesPassword" placeholder="* <%= i18n.__('Stored in local database as encrypted MD5 hash') %>"><br>
+                        <input type="password" size="50" id="opensubtitlesPassword" name="opensubtitlesPassword"><br>
                     </span>
                     <span>
-                        <em>* <a class="syncOpensubtitles" id="authOpensubtitles" href="#"><%= i18n.__("Connect to %s", "OpenSubtitles.org") %></a>
+                        <em>* <a class="syncOpensubtitles" id="authOpensubtitles" href="#"><%= i18n.__("Connect to %s", "OpenSubtitles.com") %></a>
                         <%= i18n.__("to automatically fetch subtitles for movies and episodes you watch in %s", Settings.projectName) %>&nbsp;&nbsp;
                         (<a class="createOpensubtitles" href="#"><%= i18n.__("Create an account") %></a>)</em>
                     </span>

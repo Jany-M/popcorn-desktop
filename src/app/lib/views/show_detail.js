@@ -1,6 +1,16 @@
 (function (App) {
     'use strict';
 
+    function safeIconPath(iconPath, fallbackPath) {
+        if (!iconPath || typeof iconPath !== 'string') {
+            return fallbackPath;
+        }
+        if (/^(https?:\/\/|\/)/i.test(iconPath)) {
+            return iconPath;
+        }
+        return fallbackPath;
+    }
+
     let healthButton;
 
     var _this, bookmarked;
@@ -426,7 +436,7 @@
                 let show = (function () {
                     let tmp = null;
                     $.ajax({
-                        url: 'http://api.themoviedb.org/3/find/' + imdb + '?api_key=' + api_key + '&external_source=imdb_id',
+                        url: 'https://api.themoviedb.org/3/find/' + imdb + '?api_key=' + api_key + '&external_source=imdb_id',
                         type: 'get',
                         dataType: 'json',
                         timeout: 5000,
@@ -962,10 +972,20 @@
             const provider = $('.startStreaming').attr('data-provider');
             let providerIcon;
             const showProvider = App.Config.getProviderForType('tvshow')[0];
+            const fallbackIcon = '/src/app/images/icons/' + provider + '.png';
             this.icons.getLink(showProvider, provider)
-                .then((icon) => providerIcon = icon || '/src/app/images/icons/' + provider + '.png')
-                .catch((error) => { !providerIcon ? providerIcon = '/src/app/images/icons/' + provider + '.png' : null; })
-                .then(() => $('.source-icon').html(`<img src="${providerIcon}" onerror="this.onerror=null; this.style.display='none'; this.parentElement.style.top='0'; this.parentElement.classList.add('fas', 'fa-link')" onload="this.onerror=null; this.onload=null;">`));
+                .then((icon) => providerIcon = safeIconPath(icon, fallbackIcon))
+                .catch((error) => { !providerIcon ? providerIcon = fallbackIcon : null; })
+                .then(() => {
+                    const iconEl = $('<img>').attr('src', safeIconPath(providerIcon, fallbackIcon));
+                    iconEl.on('error', function () {
+                        this.onerror = null;
+                        this.style.display = 'none';
+                        this.parentElement.style.top = '0';
+                        this.parentElement.classList.add('fas', 'fa-link');
+                    });
+                    $('.source-icon').empty().append(iconEl);
+                });
             if (sourceURL) {
                 $('.source-icon').attr('data-original-title', sourceURL.split('//').pop().split('/')[0]).css('cursor', 'pointer');
             } else {

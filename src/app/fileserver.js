@@ -1,9 +1,11 @@
+/* jshint -W003, -W014, -W026, -W033, -W082, -W083 */
+
 const http = require('http');
 const escapeHtml = require('escape-html');
 const mime = require('mime');
 const pump = require('pump');
 const rangeParser = require('range-parser');
-const queueMicrotask = require('queue-microtask');
+const queueMicrotaskFn = require('queue-microtask');
 const fs = require('fs'); // we only need fs to get the ReadStream and WriteStream prototypes
 
 function FileServer (file, opts = {}) {
@@ -36,21 +38,27 @@ function FileServer (file, opts = {}) {
 
     // Only call `server.close` if user has not called it already
     if (!cb) { cb = () => {};}
-    if (closed) { queueMicrotask(cb); }
+    if (closed) { queueMicrotaskFn(cb); }
     else { server.close(cb); }
     file = null;
   };
 
   function isOriginAllowed (req) {
     // When `origin` option is `false`, deny all cross-origin requests
-    if (opts.origin === false) return false;
+    if (opts.origin === false) {
+      return false;
+    }
 
     // Requests without an 'Origin' header are not actually cross-origin, so just
     // deny them
-    if (req.headers.origin == null) return false;
+    if (req.headers.origin == null) {
+      return false;
+    }
 
     // The user allowed all origins
-    if (opts.origin === '*') return true;
+    if (opts.origin === '*') {
+      return true;
+    }
 
     // Allow requests where the 'Origin' header matches the `opts.origin` setting
     return req.headers.origin === opts.origin;
@@ -83,7 +91,7 @@ function FileServer (file, opts = {}) {
     res.setHeader('X-Content-Type-Options', 'nosniff');
 
     // Defense-in-depth: Set a strict Content Security Policy to mitigate XSS
-    res.setHeader('Content-Security-Policy', "base-uri 'none'; default-src 'none'; frame-ancestors 'none'; form-action 'none';");
+    res.setHeader('Content-Security-Policy', 'base-uri \'none\'; default-src \'none\'; frame-ancestors \'none\'; form-action \'none\';');
 
     if (pathname === '/favicon.ico') {
       return serve404Page();
@@ -93,8 +101,10 @@ function FileServer (file, opts = {}) {
     // by responding to the OPTIONS preflight request with the specified
     // origin and requested headers.
     if (req.method === 'OPTIONS') {
-      if (isOriginAllowed(req)) return serveOptionsRequest();
-      else return serveMethodNotAllowed();
+      if (isOriginAllowed(req)) {
+        return serveOptionsRequest();
+      }
+      return serveMethodNotAllowed();
     }
 
     if (req.method === 'GET' || req.method === 'HEAD') {
@@ -248,11 +258,13 @@ function encodeRFC5987 (str) {
   return encodeURIComponent(str)
     // Note that although RFC3986 reserves "!", RFC5987 does not,
     // so we do not need to escape it
-    .replace(/['()]/g, escape) // i.e., %27 %28 %29
+    .replace(/['()]/g, function (ch) { return '%' + ch.charCodeAt(0).toString(16).toUpperCase(); }) // i.e., %27 %28 %29
     .replace(/\*/g, '%2A')
     // The following are not required for percent-encoding per RFC5987,
     // so we can allow for a little better readability over the wire: |`^
-    .replace(/%(?:7C|60|5E)/g, unescape);
+    .replace(/%7C/g, '|')
+    .replace(/%60/g, '`')
+    .replace(/%5E/g, '^');
 }
 
 module.exports = FileServer

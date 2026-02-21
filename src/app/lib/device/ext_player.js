@@ -159,6 +159,26 @@
         return players[name].fs || '';
     }
 
+    function parseSwitches(switches) {
+        if (!switches) {
+            return [];
+        }
+        const matches = switches.match(/(?:[^\s\"]+|\"[^\"]*\")+/g) || [];
+        return matches.map(function (value) {
+            return value.replace(/^\"|\"$/g, '');
+        });
+    }
+
+    function buildSwitchArgs(sw, value) {
+        if (!sw || !value) {
+            return [];
+        }
+        if (sw.endsWith('=')) {
+            return [sw + value];
+        }
+        return parseSwitches(sw).concat([value]);
+    }
+
     class ExtPlayer extends App.Device.Loaders.Device {
         constructor(attrs) {
             super(Object.assign({
@@ -168,14 +188,24 @@
         }
 
         play(streamModel) {
-            // "" So it behaves when spaces in path
-            var cmd = '', cmdPath = '', cmdSwitch = '', cmdSub = '', cmdFs = '', cmdFilename = '', cmdUrl = '';
+            var command = '';
+            var commandArgs = [];
+            var switchArgs = [];
+            var subtitleArgs = [];
+            var fullscreenArgs = [];
+            var filenameArgs = [];
+            var urlArgs = [];
             var url = streamModel.attributes.src;
             
             // A conditional check to see if VLC was installed via flatpak
-            this.get('path').includes('/flatpak/app/org.videolan.VLC/') ? cmdPath = '/usr/bin/flatpak run org.videolan.VLC ' : cmdPath += path.normalize('"' + this.get('path') + '" ');
-            
-            cmdSwitch += getPlayerSwitches(this.get('id')) + ' ';
+            if (this.get('path').includes('/flatpak/app/org.videolan.VLC/')) {
+                command = '/usr/bin/flatpak';
+                commandArgs = ['run', 'org.videolan.VLC'];
+            } else {
+                command = path.normalize(this.get('path'));
+            }
+
+            switchArgs = parseSwitches(getPlayerSwitches(this.get('id')));
 
             var subtitle = streamModel.attributes.subFile || '';
             if (subtitle !== '') {
@@ -185,30 +215,49 @@
                     //var targetEncodingCharset = 'utf8';
                     var detectedEncoding = charsetDetect.detect(dataBuff).encoding;
                     if (detectedEncoding.toLowerCase() === 'utf-8') {
-                        cmdSub += '-utf8 ';
+                        subtitleArgs = subtitleArgs.concat(['-utf8']);
                     }
                 }
-                cmdSub += getPlayerSubSwitch(this.get('id')) + '"' + subtitle + '" ';
+                subtitleArgs = subtitleArgs.concat(buildSwitchArgs(getPlayerSubSwitch(this.get('id')), subtitle));
             }
             if (getPlayerFS(this.get('id')) !== '') {
                 // Start player fullscreen if available and asked
                 if (Settings.alwaysFullscreen) {
-                    cmdFs += getPlayerFS(this.get('id')) + ' ';
+                    fullscreenArgs = fullscreenArgs.concat(parseSwitches(getPlayerFS(this.get('id'))));
                 }
             }
             if (getPlayerFilenameSwitch(this.get('id')) !== '') {
                 var videoFile = streamModel.attributes.torrentModel.get('video_file');
-                cmdFilename += videoFile ? (getPlayerFilenameSwitch(this.get('id')) + '"' + videoFile.name + '" ') : '';
+                if (videoFile && videoFile.name) {
+                    filenameArgs = filenameArgs.concat(buildSwitchArgs(getPlayerFilenameSwitch(this.get('id')), videoFile.name));
+                }
             }
-            cmdUrl += getPlayerUrlSwitch(this.get('id')) + url;
+            urlArgs = buildSwitchArgs(getPlayerUrlSwitch(this.get('id')), url);
+            if (urlArgs.length === 0) {
+                urlArgs = [url];
+            }
             // BSPlayer need to receive arguments in specific order (1st: url, 2nd: sub, ...)
             if (this.get('id') === 'BSPlayer') {
-                cmd += cmdPath + '"' + cmdUrl + '" ' + cmdSub + cmdFs + cmdSwitch;
+                commandArgs = commandArgs.concat(urlArgs, subtitleArgs, fullscreenArgs, switchArgs, filenameArgs);
             } else {
-                cmd += cmdPath + cmdSwitch + cmdSub + cmdFs + cmdFilename + cmdUrl;
+                commandArgs = commandArgs.concat(switchArgs, subtitleArgs, fullscreenArgs, filenameArgs, urlArgs);
             }
-            win.info('Launching External Player: ' + cmd);
-            child.exec(cmd, function (error, stdout, stderr) {
+
+            win.info('Launching External Player: ' + command + ' ' + commandArgs.join(' '));
+            var playerProcess = child.spawn(command, commandArgs, {
+                shell: false,
+                detached: false,
+                stdio: 'ignore'
+            });
+
+            playerProcess.on('error', function (error) {
+                win.error('External Player failed to launch', error);
+                App.vent.trigger('player:close');
+                App.vent.trigger('stream:stop');
+                App.vent.trigger('preload:stop');
+            });
+
+            playerProcess.on('close', function () {
                 if (streamModel.attributes.device.id === 'Bomi') {
                     // don't stop on exit, because Bomi could be already running in background and the command ends while the stream should continue
                     return;
@@ -217,6 +266,8 @@
                 App.vent.trigger('stream:stop');
                 App.vent.trigger('preload:stop');
             });
+
+            playerProcess.unref();
         }
 
         pause() {}
@@ -226,7 +277,7 @@
         unpause() {}
 
         static scan() {
-            let searchPaths = []
+            let searchPaths = [];
 
             let addPath = function (path) {
                 if (fs.existsSync(path)) {

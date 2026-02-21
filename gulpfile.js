@@ -24,6 +24,7 @@ const gulp = require('gulp'),
   util = require('util'),
   path = require('path'),
   exec = require('child_process').exec,
+  execSync = require('child_process').execSync,
   spawn = require('child_process').spawn,
   pkJson = require('./package.json');
 
@@ -138,7 +139,7 @@ const waitProcess = function(process) {
         });
 
         process.on('error', (error) => {
-            log(error);
+          console.log(error);
             reject(error);
         });
     });
@@ -309,6 +310,43 @@ gulp.task('jshint', () => {
       'src/app/vendor/videojsplugins.js',
       'src/app/*.js'
     ])
+    .pipe(glp.jshint('.jshintrc'))
+    .pipe(glp.jshint.reporter('jshint-stylish'))
+    .pipe(glp.jshint.reporter('fail'));
+});
+
+const getStagedJsFiles = () => {
+  const output = execSync('git diff --cached --name-only --diff-filter=ACMR', {
+    encoding: 'utf8'
+  });
+
+  return output
+    .split(/\r?\n/)
+    .map((filePath) => filePath.trim().replace(/\\/g, '/'))
+    .filter((filePath) => filePath.length > 0)
+    .filter((filePath) => {
+      return filePath === 'gulpfile.js' || /^src\/app\/.+\.js$/.test(filePath);
+    });
+};
+
+gulp.task('jshint:staged', (done) => {
+  let stagedFiles = [];
+
+  try {
+    stagedFiles = getStagedJsFiles();
+  } catch (error) {
+    done(error);
+    return;
+  }
+
+  if (!stagedFiles.length) {
+    console.log('No staged JavaScript files to lint.');
+    done();
+    return;
+  }
+
+  return gulp
+    .src(stagedFiles)
     .pipe(glp.jshint('.jshintrc'))
     .pipe(glp.jshint.reporter('jshint-stylish'))
     .pipe(glp.jshint.reporter('fail'));
@@ -622,7 +660,7 @@ gulp.task('deb', () => {
 // prevent commiting if conditions aren't met and force beautify (bypass with `git commit -n`)
 gulp.task(
   'pre-commit',
-  gulp.series('jshint', function(done) {
+  gulp.series('jshint:staged', function(done) {
     // default task code here
     done();
   })

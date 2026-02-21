@@ -2,6 +2,27 @@
   'use strict';
   var healthButton, curSynopsis;
 
+  function escapeHtml(value) {
+    return $('<div>').text(value || '').html();
+  }
+
+  function buildPersonLinks(name) {
+    return {
+      imdb: 'https://www.imdb.com/find?s=nm&q=' + encodeURIComponent((name || '').replace(/\'/g, ' ')),
+      yts: 'https://yts.mx/browse-movies/' + encodeURIComponent((name || '').replace(/\'/g, ' '))
+    };
+  }
+
+  function safeIconPath(iconPath, fallbackPath) {
+    if (!iconPath || typeof iconPath !== 'string') {
+      return fallbackPath;
+    }
+    if (/^(https?:\/\/|\/)/i.test(iconPath)) {
+      return iconPath;
+    }
+    return fallbackPath;
+  }
+
   var _this;
   App.View.MovieDetail = Marionette.View.extend({
     template: '#movie-detail-tpl',
@@ -28,7 +49,9 @@
       'click .showall-cast': 'showallCast',
       'click .health-icon': 'resetTorrentHealth',
       'mousedown .mcover-image': 'clickPoster',
-      'mousedown .title': 'copytoclip'
+      'mousedown .title': 'copytoclip',
+      'click .cast-link': 'openCastLink',
+      'contextmenu .cast-link': 'openCastYtsLink'
     },
 
     regions: {
@@ -102,10 +125,26 @@
       const torrent = this.model.get('torrents')[quality];
       if (torrent.source) {
         const provider = App.Config.getProviderForType('movie')[0];
+        const fallbackIcon = '/src/app/images/icons/' + torrent.provider + '.png';
         this.icons.getLink(provider, torrent.provider)
-            .then((icon) => torrent.icon = icon || '/src/app/images/icons/' + torrent.provider + '.png')
-            .catch((error) => { !torrent.icon ? torrent.icon = '/src/app/images/icons/' + torrent.provider + '.png' : null; })
-            .then(() => $('.source-link').html(`<img src="${torrent.icon}" onerror="this.onerror=null; this.style.display='none'; this.parentElement.style.top='0'; this.parentElement.classList.add('fas', 'fa-link')" onload="this.onerror=null; this.onload=null;">`));
+            .then((icon) => {
+              torrent.icon = safeIconPath(icon, fallbackIcon);
+            })
+            .catch((error) => {
+              if (!torrent.icon) {
+                torrent.icon = fallbackIcon;
+              }
+            })
+            .then(() => {
+              const iconEl = $('<img>').attr('src', safeIconPath(torrent.icon, fallbackIcon));
+              iconEl.on('error', function () {
+                this.onerror = null;
+                this.style.display = 'none';
+                this.parentElement.style.top = '0';
+                this.parentElement.classList.add('fas', 'fa-link');
+              });
+              $('.source-link').empty().append(iconEl);
+            });
         $('.source-link').show().attr('data-original-title', torrent.source.split('//').pop().split('/')[0]);
       } else {
         $('.source-link').html('');
@@ -222,7 +261,7 @@
       movie = (function () {
         var tmp = null;
         $.ajax({
-          url: 'http://api.themoviedb.org/3/movie/' + imdb + '?api_key=' + api_key + '&language=' + lang + '&append_to_response=videos,credits',
+          url: 'https://api.themoviedb.org/3/movie/' + imdb + '?api_key=' + api_key + '&language=' + lang + '&append_to_response=videos,credits',
           type: 'get',
           dataType: 'json',
           timeout: 5000,
@@ -237,22 +276,34 @@
       (!this.model.get('synopsis') || (Settings.translateSynopsis && Settings.language !== 'en')) && movie && movie.overview ? this.model.set('synopsis', movie.overview) : null;
       (!this.model.get('rating') || this.model.get('rating') === '0' || this.model.get('rating') === '0.0') && movie && movie.vote_average ? this.model.set('rating', movie.vote_average) : null;
       (!this.model.get('runtime') || this.model.get('runtime') === '0') && movie && movie.runtime ? this.model.set('runtime', movie.runtime) : null;
-      !this.model.get('trailer') && movie && movie.videos && movie.videos.results && movie.videos.results[0] ? this.model.set('trailer', 'http://www.youtube.com/watch?v=' + movie.videos.results[0].key) : null;
-      (!this.model.get('poster') || this.model.get('poster') === 'images/posterholder.png') && movie && movie.poster_path ? this.model.set('poster', 'http://image.tmdb.org/t/p/w500' + movie.poster_path) : null;
-      (!this.model.get('backdrop') || this.model.get('backdrop') === 'images/posterholder.png') && movie && movie.backdrop_path ? this.model.set('backdrop', 'http://image.tmdb.org/t/p/w500' + movie.backdrop_path) : ((!this.model.get('backdrop') || this.model.get('backdrop') === 'images/posterholder.png') && movie && movie.poster_path ? this.model.set('backdrop', 'http://image.tmdb.org/t/p/w500' + movie.poster_path) : null);
+      !this.model.get('trailer') && movie && movie.videos && movie.videos.results && movie.videos.results[0] ? this.model.set('trailer', 'https://www.youtube.com/watch?v=' + movie.videos.results[0].key) : null;
+      (!this.model.get('poster') || this.model.get('poster') === 'images/posterholder.png') && movie && movie.poster_path ? this.model.set('poster', 'https://image.tmdb.org/t/p/w500' + movie.poster_path) : null;
+      (!this.model.get('backdrop') || this.model.get('backdrop') === 'images/posterholder.png') && movie && movie.backdrop_path ? this.model.set('backdrop', 'https://image.tmdb.org/t/p/w500' + movie.backdrop_path) : ((!this.model.get('backdrop') || this.model.get('backdrop') === 'images/posterholder.png') && movie && movie.poster_path ? this.model.set('backdrop', 'https://image.tmdb.org/t/p/w500' + movie.poster_path) : null);
       !this.model.get('tmdb_id') && movie && movie.id ? this.model.set('tmdb_id', movie.id) : null;
       if (movie && movie.credits && movie.credits.cast && movie.credits.crew && (movie.credits.cast[0] || movie.credits.crew[0])) {
-        curSynopsis.old = this.model.get('synopsis');
-        curSynopsis.crew = movie.credits.crew.filter(function (el) {return el.job === 'Director';}).map(function (el) {return '<span>' + el.job + '&nbsp;-&nbsp;</span><span' + (el.profile_path ? ` data-toggle="tooltip" title="<img src='https://image.tmdb.org/t/p/w154${el.profile_path}' class='toolcimg'/>" ` : ' ') + `class="cname" onclick="nw.Shell.openExternal('https://www.imdb.com/find?s=nm&q=${el.name.replace(/\'/g, ' ').replace(/\ /g, '+')}')" oncontextmenu="nw.Shell.openExternal('https://yts.mx/browse-movies/${el.name.replace(/\'/g, ' ').replace(/\ /g, '+')}')">${el.name.replace(/\ /g, '&nbsp;')}</span>`;}).join('&nbsp;&nbsp; ') + '<p class="sline">&nbsp;</p>';
-        curSynopsis.allcast = movie.credits.cast.map(function (el) {return '<span' + (el.profile_path ? ` data-toggle="tooltip" title="<img src='https://image.tmdb.org/t/p/w154${el.profile_path}' class='toolcimg'/>" ` : ' ') + `class="cname" onclick="nw.Shell.openExternal('https://www.imdb.com/find?s=nm&q=${el.name.replace(/\'/g, ' ').replace(/\ /g, '+')}')" oncontextmenu="nw.Shell.openExternal('https://yts.mx/browse-movies/${el.name.replace(/\'/g, ' ').replace(/\ /g, '+')}')">${el.name.replace(/\ /g, '&nbsp;')}</span><span>&nbsp;-&nbsp;${el.character.replace(/\ /g, '&nbsp;')}</span>`;}).join('&nbsp;&nbsp; ') + '<p>&nbsp;</p>';
-        curSynopsis.cast = movie.credits.cast.slice(0,10).map(function (el) {return '<span' + (el.profile_path ? ` data-toggle="tooltip" title="<img src='https://image.tmdb.org/t/p/w154${el.profile_path}' class='toolcimg'/>" ` : ' ') + `class="cname" onclick="nw.Shell.openExternal('https://www.imdb.com/find?s=nm&q=${el.name.replace(/\'/g, ' ').replace(/\ /g, '+')}')" oncontextmenu="nw.Shell.openExternal('https://yts.mx/browse-movies/${el.name.replace(/\'/g, ' ').replace(/\ /g, '+')}')">${el.name.replace(/\ /g, '&nbsp;')}</span><span>&nbsp;-&nbsp;${el.character.replace(/\ /g, '&nbsp;')}</span>`;}).join('&nbsp;&nbsp; ') + (movie.credits.cast.length > 10 ? '&nbsp;&nbsp;&nbsp;<span class="showall-cast">more...</span>' : '') + '<p>&nbsp;</p>';
+        curSynopsis.old = escapeHtml(this.model.get('synopsis'));
+        curSynopsis.crew = movie.credits.crew.filter(function (el) {return el.job === 'Director';}).map(function (el) {
+          var links = buildPersonLinks(el.name);
+          return '<span>' + escapeHtml(el.job) + '&nbsp;-&nbsp;</span>' +
+            '<a href="#" class="cname cast-link" data-imdb-url="' + links.imdb + '" data-yts-url="' + links.yts + '">' + escapeHtml(el.name).replace(/\ /g, '&nbsp;') + '</a>';
+        }).join('&nbsp;&nbsp; ') + '<p class="sline">&nbsp;</p>';
+        curSynopsis.allcast = movie.credits.cast.map(function (el) {
+          var links = buildPersonLinks(el.name);
+          return '<a href="#" class="cname cast-link" data-imdb-url="' + links.imdb + '" data-yts-url="' + links.yts + '">' + escapeHtml(el.name).replace(/\ /g, '&nbsp;') + '</a>' +
+            '<span>&nbsp;-&nbsp;' + escapeHtml(el.character).replace(/\ /g, '&nbsp;') + '</span>';
+        }).join('&nbsp;&nbsp; ') + '<p>&nbsp;</p>';
+        curSynopsis.cast = movie.credits.cast.slice(0,10).map(function (el) {
+          var links = buildPersonLinks(el.name);
+          return '<a href="#" class="cname cast-link" data-imdb-url="' + links.imdb + '" data-yts-url="' + links.yts + '">' + escapeHtml(el.name).replace(/\ /g, '&nbsp;') + '</a>' +
+            '<span>&nbsp;-&nbsp;' + escapeHtml(el.character).replace(/\ /g, '&nbsp;') + '</span>';
+        }).join('&nbsp;&nbsp; ') + (movie.credits.cast.length > 10 ? '&nbsp;&nbsp;&nbsp;<span class="showall-cast">more...</span>' : '') + '<p>&nbsp;</p>';
       }
       // Fallback to english when source and TMDb call in default language that is other than english fail to fetch synopsis
       if (!this.model.get('synopsis') && Settings.language !== 'en') {
         movie = (function () {
           var tmp = null;
           $.ajax({
-            url: 'http://api.themoviedb.org/3/movie/' + imdb + '?api_key=' + api_key,
+            url: 'https://api.themoviedb.org/3/movie/' + imdb + '?api_key=' + api_key,
             type: 'get',
             dataType: 'json',
             timeout: 5000,
@@ -279,7 +330,6 @@
           if (curSynopsis.cast !== '') {
             $('.overview').html(curSynopsis.crew + curSynopsis.cast + curSynopsis.old);
             $('.show-cast').attr('title', i18n.__('Hide cast')).tooltip('hide').tooltip('fixTitle');
-            $('.overview *').tooltip({html: true, sanitize: false, container: 'body', placement: 'bottom', delay: {show: 200, hide: 0}, template: '<div class="tooltip" style="opacity:1"><div class="tooltip-inner" style="background-color:rgba(0,0,0,0);width:118px"></div></div>'});
             curSynopsis.vstatus = true;
           } else {
             $('.show-cast').css({cursor: 'default', opacity: 0.4}).attr('title', i18n.__('Cast not available')).tooltip('hide').tooltip('fixTitle');
@@ -295,7 +345,6 @@
 
     showallCast: function () {
       $('.overview').html(curSynopsis.crew + curSynopsis.allcast + curSynopsis.old);
-      $('.overview *').tooltip({html: true, sanitize: false, container: 'body', placement: 'bottom', delay: {show: 200, hide: 0}, template: '<div class="tooltip" style="opacity:1"><div class="tooltip-inner" style="background-color:rgba(0,0,0,0);width:118px"></div></div>'});
     },
 
     clickPoster: (e) => Common.openOrClipboardLink(e, $('.mcover-image')[0].src, i18n.__('image url'), true),
@@ -409,7 +458,7 @@
         let movie = (function () {
           let tmp = null;
           $.ajax({
-            url: 'http://api.themoviedb.org/3/find/' + imdb + '?api_key=' + api_key + '&external_source=imdb_id',
+            url: 'https://api.themoviedb.org/3/find/' + imdb + '?api_key=' + api_key + '&external_source=imdb_id',
             type: 'get',
             dataType: 'json',
             timeout: 5000,
@@ -430,6 +479,22 @@
         Common.openOrClipboardLink(e, tmdbLink, i18n.__('submit metadata & translations link'));
       } else {
         $('.tmdb-link').addClass('disabled').prop('disabled', true).attr('title', i18n.__('Not available')).tooltip('hide').tooltip('fixTitle');
+      }
+    },
+
+    openCastLink: function (e) {
+      e.preventDefault();
+      var url = $(e.currentTarget).attr('data-imdb-url');
+      if (url) {
+        nw.Shell.openExternal(url);
+      }
+    },
+
+    openCastYtsLink: function (e) {
+      e.preventDefault();
+      var url = $(e.currentTarget).attr('data-yts-url');
+      if (url) {
+        nw.Shell.openExternal(url);
       }
     }
 

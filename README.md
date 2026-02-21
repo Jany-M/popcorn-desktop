@@ -116,6 +116,32 @@ If you encounter trouble with the above method, you can try:
 3. `yarn build`
 4. `yarn start`
 
+#### Windows build guide (from source)
+
+Prerequisites:
+
+1. Install **Node.js 20 LTS** (recommended for best compatibility)
+2. Install **Yarn classic (v1)**
+  - `npm install -g yarn@1.22.22`
+3. Install **NSIS** (required to generate `.exe` installer)
+  - `winget install NSIS.NSIS`
+
+Run in PowerShell from the project root:
+
+1. `yarn config set yarn-offline-mirror ./node_modules/`
+2. `yarn install --ignore-engines`
+3. `yarn build`
+4. `yarn start`
+
+Create Windows packages:
+
+- ZIP package(s): `yarn dist --platforms=win64` (or `win32`, `win32,win64`)
+- NSIS installer (`*.exe`): same command above, with NSIS installed and available in PATH
+
+Build outputs are written to the `build/` directory.
+
+If `yarn start` fails on a fresh clone, run `yarn build` first to download/cache NW.js binaries.
+
 Optionally, you may simply run `./make_popcorn.sh` if you are on a linux or mac based operating system.
 
 Full instructions & troubleshooting tips can be found in the [Contributing Guide](docs/Contributing.md#contributing-to-popcorn-time).

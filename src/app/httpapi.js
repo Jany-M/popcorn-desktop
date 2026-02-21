@@ -4,6 +4,11 @@
     var server;
     var httpServer;
 
+    function isWeakHttpApiCredentials() {
+        return !Settings.httpApiUsername || !Settings.httpApiPassword ||
+            (Settings.httpApiUsername === 'popcorn' && Settings.httpApiPassword === 'popcorn');
+    }
+
     function butterCallback(callback, err, result) {
         if (result === undefined) {
             result = {};
@@ -16,7 +21,7 @@
         return new Promise(function (resolve, reject) {
             server = rpc.Server({
                 'headers': { // allow custom headers is empty by default
-                    'Access-Control-Allow-Origin': '*'
+                    'Access-Control-Allow-Origin': 'http://127.0.0.1'
                 }
             });
 
@@ -796,7 +801,7 @@
     var sockets = [];
 
     function startListening() {
-        httpServer = server.listen(Settings.httpApiPort);
+        httpServer = server.listen(Settings.httpApiPort, '127.0.0.1');
 
         httpServer.on('connection', function (socket) {
             sockets.push(socket);
@@ -822,6 +827,17 @@
             if (httpServer) {
                 closeServer(() => {});
             }
+            return;
+        }
+        if (isWeakHttpApiCredentials()) {
+            win.error('HTTP API disabled: set non-default HTTP API username/password first.');
+            App.vent.trigger('notification:show', new App.Model.Notification({
+                title: i18n.__('Error'),
+                body: i18n.__('Set non-default HTTP API username/password before enabling remote control'),
+                autoclose: true,
+                showClose: false,
+                type: 'error'
+            }));
             return;
         }
         win.info('Initializing HTTP API server');

@@ -173,13 +173,13 @@ Settings.activateTempf = true;
 // Remote Control
 Settings.httpApiEnabled = false;
 Settings.httpApiPort = 8008;
-Settings.httpApiUsername = 'popcorn';
-Settings.httpApiPassword = 'popcorn';
+Settings.httpApiUsername = '';
+Settings.httpApiPassword = '';
 
 // API Server(s)
-Settings.customMoviesServer = '';
-Settings.customSeriesServer = '';
-Settings.customAnimeServer = '';
+Settings.customMoviesServer = 'https://fusme.link/,https://jfper.link/,https://uxert.link/,https://yrkde.link/';
+Settings.customSeriesServer = 'https://fusme.link/,https://jfper.link/,https://uxert.link/,https://yrkde.link/';
+Settings.customAnimeServer = 'https://fusme.link/,https://jfper.link/,https://uxert.link/,https://yrkde.link/';
 Settings.dhtEnable = '';
 
 // Connection

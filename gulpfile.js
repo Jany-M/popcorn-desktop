@@ -21,6 +21,7 @@ const gulp = require('gulp'),
   git = require('git-describe'),
   zip = require('gulp-zip'),
   fs = require('fs'),
+  util = require('util'),
   path = require('path'),
   exec = require('child_process').exec,
   spawn = require('child_process').spawn,
@@ -132,20 +133,58 @@ const waitProcess = function(process) {
                 if (logs.length) {
                     console.log(logs.join('\n'));
                 }
-                reject();
+                reject(new Error('Process exited with code ' + exitCode));
             }
         });
 
         process.on('error', (error) => {
-            console.log(error);
-            reject();
+            log(error);
+            reject(error);
         });
     });
 };
 
 // console.log for thenable promises
-const log = () => {
-  console.log.apply(console, arguments);
+const summarizeObject = (obj) => {
+  const ctor = (obj && obj.constructor && obj.constructor.name) || 'Object';
+  const keys = Object.keys(obj || {});
+  if (!keys.length) {
+    return '[' + ctor + ']';
+  }
+  const preview = keys.slice(0, 5).join(', ');
+  return '[' + ctor + ' keys: ' + preview + (keys.length > 5 ? ', ...' : '') + ']';
+};
+
+const formatLogValue = (value) => {
+  if (value instanceof Error) {
+    return value.stack || value.message;
+  }
+  if (typeof value === 'string') {
+    return value;
+  }
+  if (typeof value === 'number' || typeof value === 'boolean' || value == null) {
+    return String(value);
+  }
+  if (typeof value === 'object') {
+    return summarizeObject(value);
+  }
+  return util.inspect(value, { depth: 0, colors: false });
+};
+
+const log = (...args) => {
+  if (!args.length) {
+    return;
+  }
+  if (typeof args[0] === 'string') {
+    console.log(util.format(...args));
+    return;
+  }
+  console.log(args.map(formatLogValue).join(' '));
+};
+
+const logAndThrow = (error) => {
+  log(error);
+  throw error;
 };
 
 // del wrapper for `clean` tasks
@@ -187,7 +226,7 @@ const nw = new nwBuilder({
   manifestUrl: 'https://popcorn-time.serv00.net/version.json',
   downloadUrl: 'https://popcorn-time.serv00.net/nw/',
   platforms: parsePlatforms()
-}).on('log', console.log);
+}).on('log', (...args) => log(...args));
 
 /*************
  * gulp tasks *
@@ -300,7 +339,7 @@ gulp.task('compresszip', () => {
           });
       });
     })
-  ).catch(log);
+  ).catch(logAndThrow);
 });
 
 // beautify entire code (tweak in .jsbeautifyrc)
@@ -375,13 +414,13 @@ gulp.task('mac-pkg', () => {
                 pkJson.name + '-' + pkJson.version + '.pkg',
                 pkJson.name + '-' + curVersion() + '-osx64' + nwSuffix() + '.pkg'
             ).then(() => resolve());
-        }).catch(() => {
+        }).catch((error) => {
             console.log('%s failed to package pkg', platform);
-            reject();
+            reject(error);
         });
       });
     })
-  ).catch(log);
+  ).catch(logAndThrow);
 });
 
 // download and compile nwjs
@@ -500,7 +539,17 @@ gulp.task('nsis', () => {
       return new Promise((resolve, reject) => {
         console.log('Packaging nsis for: %s', platform);
 
-        const child = platform === 'win32' ? spawn('makensis.exe', ['./dist/windows/installer_makensis32.nsi', '-DOUTDIR=' + path.join(process.cwd(), releasesDir)]) : spawn('makensis', ['./dist/windows/installer_makensis64.nsi', '-DOUTDIR=' + path.join(process.cwd(), releasesDir)]);
+        const nsisBinary = detectCurrentPlatform(process).indexOf('win') !== -1
+          ? (fs.existsSync('C:\\Program Files (x86)\\NSIS\\makensis.exe')
+            ? 'C:\\Program Files (x86)\\NSIS\\makensis.exe'
+            : (fs.existsSync('C:\\Program Files\\NSIS\\makensis.exe')
+              ? 'C:\\Program Files\\NSIS\\makensis.exe'
+              : 'makensis.exe'))
+          : 'makensis';
+        const nsisScript = platform === 'win32'
+          ? './dist/windows/installer_makensis32.nsi'
+          : './dist/windows/installer_makensis64.nsi';
+        const child = spawn(nsisBinary, [nsisScript, '-DOUTDIR=' + path.join(process.cwd(), releasesDir)]);
 
         waitProcess(child).then(() => {
           console.log('%s nsis packaged in', platform, path.join(process.cwd(), releasesDir));
@@ -513,13 +562,13 @@ gulp.task('nsis', () => {
             pkJson.name + '-' + pkJson.version + '-' + platform + '-Setup.exe',
             pkJson.name + '-' + curVersion() + '-' + platform + nwSuffix() + '-Setup.exe'
           ).then(() => resolve());
-        }).catch(() => {
+        }).catch((error) => {
           console.log('%s failed to package nsis', platform);
-          reject();
+          reject(error);
         });
       });
     })
-  ).catch(log);
+  ).catch(logAndThrow);
 });
 
 // compile debian packages
@@ -561,13 +610,13 @@ gulp.task('deb', () => {
                 pkJson.name + '-' + curVersion() + '-' + suffix + '.deb',
                 pkJson.name + '-' + curVersion() + '-' + suffix + nwSuffix() + '.deb'
             ).then(() => resolve());
-        }).catch(() => {
+        }).catch((error) => {
             console.log('%s failed to package deb', platform);
-            reject();
+            reject(error);
         });
       });
     })
-  ).catch(log);
+  ).catch(logAndThrow);
 });
 
 // prevent commiting if conditions aren't met and force beautify (bypass with `git commit -n`)

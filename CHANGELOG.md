@@ -1,3 +1,21 @@
+## 0.6.0 - Stability & Reliability - TBD
+
+New Features:
+- Add default API servers for movies, series, and anime (fusme.link, jfper.link, uxert.link, yrkde.link)
+- Migrate to OpenSubtitles.com REST API (old XML-RPC API deprecated)
+
+Bug Fixes:
+- Fix disclaimer accept button not responding on first run
+- Fix build system error handling to properly report packaging failures
+- Add NSIS path resolution for Windows installer generation
+- Suppress noisy object dumps in build logs
+- Improve subtitle download content-type detection
+
+Other:
+- Improve gulp task error propagation
+- Decouple settings persistence from optional updater logic
+- Update all OpenSubtitles references from .org to .com
+
 ## 0.5.1 - Now.. Bring me that Horizon - 16 April 2024
 
 New Features:

@@ -35,10 +35,19 @@
       this.views = {};
       var providers = this.model.get('providers');
       var subtitleProvider = App.Config.getProviderForType('subtitle');
-      subtitleProvider.detail(
-        this.model.get('imdb_id'),
-        this.model.get('title')
-      );
+      this.model.set('subtitle', this.model.get('subtitle') || {});
+      try {
+        if (subtitleProvider && typeof subtitleProvider.detail === 'function') {
+          Promise.resolve(subtitleProvider.detail(
+            this.model.get('imdb_id'),
+            this.model.get('title')
+          )).catch(function (error) {
+            win.error('Subtitle detail fetch failed:', error);
+          });
+        }
+      } catch (error) {
+        win.error('Subtitle provider initialization failed:', error);
+      }
       if (!this.model.get('langs')) {
         this.model.set('langs', { en: this.model.get('torrents') });
       } else {
@@ -52,7 +61,12 @@
       App.vent.on(
         'update:subtitles',
         function(subs) {
-          this.views.sub.updateLangs(subs);
+          var nextSubs = subs || {};
+          this.model.set('subtitle', nextSubs);
+
+          if (this.views.sub && typeof this.views.sub.updateLangs === 'function') {
+            this.views.sub.updateLangs(nextSubs);
+          }
         }.bind(this)
       );
 
@@ -90,7 +104,7 @@
     hideUnused: function() {
       if (!this.model.get('torrents')) {
         // no torrents
-        $('#player-chooser, #audio-dropdown, #subs-dropdown').hide();
+        $('#player-chooser, #audio-dropdown, #subs-dropdown, #quality-selector').hide();
       }
 
       if (!this.model.get('trailer')) {
@@ -125,9 +139,17 @@
     },
 
     loadQualitySelector: function () {
+      var torrents = this.model.get('torrents');
+      if (!torrents || typeof torrents !== 'object' || !Object.keys(torrents).length) {
+        this.getRegion('qualitySelector').empty();
+        $('#quality-selector').hide();
+        return;
+      }
+
+      $('#quality-selector').show();
       var qualitySelector = new App.View.QualitySelector({
         model: new Backbone.Model({
-          torrents: this.model.get('torrents'),
+          torrents: torrents,
           selectCallback: this.setQuality,
           required: [],
           defaultQualityKey: 'movies_default_quality',

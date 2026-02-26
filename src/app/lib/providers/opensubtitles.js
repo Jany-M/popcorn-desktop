@@ -258,9 +258,19 @@
      * Get subtitle details by IMDb ID
      */
     OpenSubtitles.prototype.detail = function (id, attrs) {
-        return this.fetch({
+        var query = {
             imdbid: id
-        }).then(function (data) {
+        };
+
+        if (!id) {
+            if (typeof attrs === 'string') {
+                query.filename = attrs;
+            } else if (attrs && attrs.title) {
+                query.filename = attrs.title;
+            }
+        }
+
+        return this.fetch(query).then(function (data) {
             App.vent.trigger('update:subtitles', data);
             return {
                 subtitle: data

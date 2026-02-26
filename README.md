@@ -116,6 +116,19 @@ If you encounter trouble with the above method, you can try:
 3. `yarn build`
 4. `yarn start`
 
+#### Local OpenSubtitles API key (.env)
+
+To keep API keys out of git history, configure OpenSubtitles locally:
+
+1. Copy `.env.example` to `.env`
+2. Set your key:
+  - `OPENSUBTITLES_API_KEY=your_key_here`
+3. Restart the app
+
+Notes:
+- `.env` and `.env.local` are gitignored
+- You can also use `POPCORN_OPENSUBTITLES_API_KEY`
+
 #### Windows build guide (from source)
 
 Prerequisites:

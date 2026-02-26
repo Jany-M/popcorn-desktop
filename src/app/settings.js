@@ -1,4 +1,44 @@
 /** Default settings **/
+var LocalEnv = {};
+
+(function loadLocalEnv() {
+  try {
+    var fs = require('fs');
+    var envPath = path.join(process.cwd(), '.env');
+
+    if (!fs.existsSync(envPath)) {
+      return;
+    }
+
+    fs.readFileSync(envPath, 'utf8')
+      .split(/\r?\n/)
+      .forEach(function (line) {
+        var trimmed = line.trim();
+        if (!trimmed || trimmed.indexOf('#') === 0) {
+          return;
+        }
+
+        var idx = trimmed.indexOf('=');
+        if (idx === -1) {
+          return;
+        }
+
+        var key = trimmed.slice(0, idx).trim();
+        var value = trimmed.slice(idx + 1).trim().replace(/^['\"]|['\"]$/g, '');
+        LocalEnv[key] = value;
+      });
+  } catch (error) {
+    // Ignore missing/invalid local env file
+  }
+})();
+
+var openSubtitlesApiKey =
+  process.env.OPENSUBTITLES_API_KEY ||
+  process.env.POPCORN_OPENSUBTITLES_API_KEY ||
+  LocalEnv.OPENSUBTITLES_API_KEY ||
+  LocalEnv.POPCORN_OPENSUBTITLES_API_KEY ||
+  '';
+
 var Settings = {
   projectName: 'Popcorn Time',
   projectUrl: '',
@@ -26,7 +66,7 @@ var Settings = {
     '-----END PUBLIC KEY-----\n',
   opensubtitles: {
     useragent: 'Butter',
-    apikey: 'sAUUD6B9mStMguWGyVSzkXKnHVbuUL6e'
+    apikey: openSubtitlesApiKey
   },
   trakttv: {
     client_id:

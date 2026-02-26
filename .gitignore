@@ -10,6 +10,8 @@ src/app/css/app.css
 git.json
 *git.json
 .vscode/
+.env
+.env.local
 
 # temp files
 pids

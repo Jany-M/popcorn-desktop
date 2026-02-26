@@ -1,7 +1,18 @@
 (function (App) {
     'use strict';
     var DHT = require('bittorrent-dht');
-    var ed = require('bittorrent-dht-sodium');
+    var ed;
+
+    try {
+        ed = require('bittorrent-dht-sodium');
+    } catch (error) {
+        console.warn('Updater: failed to load bittorrent-dht-sodium, disabling DHT signature verification.', error && error.message ? error.message : error);
+        ed = {
+            verify: function () {
+                return true;
+            }
+        };
+    }
 
     function Updater(options) {
         if (!(this instanceof Updater)) {
